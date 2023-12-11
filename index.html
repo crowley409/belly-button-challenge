@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Bellybutton Biodiversity</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="row">
+      <div class="col-md-2">
+        <div class="well">
+          <h5>Test Subject ID No.:</h5>
+          <!-- Add a dropdown menu -->
+          <select id="selDataset" onchange="optionChanged(this.value)"></select>
+        </div>
+        <div class="panel panel-primary">
+          <div class="panel-heading">
+            <h3 class="panel-title">Demographic Info</h3>
+          </div>
+          <div id="sample-metadata" class="panel-body"></div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <!-- Add a div for the bar chart -->
+        <div id="bar"></div>
+      </div>
+      <div class="col-md-5">
+        <div id="gauge"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12">
+        <div id="bubble"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="./static/js/app.js"></script>
+  <script src="./static/js/bonus.js"></script>
+  <script>
+  // Declare selectedData in a scope accessible to both functions
+  var selectedData;
+
+// Function to handle dropdown changes
+function optionChanged(selectedID) {
+  // Fetch the data for the selected individual
+  selectedData = data.samples.find(sample => sample.id === selectedID);
+
+  // Log the selected data to the console to verify
+  console.log("Selected Data:", selectedData);
+
+  // Update the top 10 OTUs
+  var otuMetadata = d3.select("#otu-metadata");
+  otuMetadata.html("<pre>" + JSON.stringify(selectedData, null, 2) + "</pre>");
+
+  // Clear the existing bar chart
+  Plotly.purge('bar');
+
+  // Create a horizontal bar chart
+  var barData = [{
+    type: 'bar',
+    x: selectedData.sample_values.slice(0, 10).reverse(),
+    y: selectedData.otu_ids.slice(0, 10).map(id => `OTU ${id}`).reverse(),
+    text: selectedData.otu_labels.slice(0, 10).reverse(),
+    orientation: 'h'
+  }];
+
+  var barLayout = {
+    title: 'Top 10 OTUs',
+    xaxis: { title: 'Sample Values' },
+    yaxis: { title: 'OTU IDs' }
+  };
+
+  Plotly.newPlot('bar', barData, barLayout);
+
+  // Update the sample metadata
+  var demographicInfo = data.metadata.find(metadata => metadata.id === +selectedID);
+  var htmlString = "<pre>";
+  Object.entries(demographicInfo).forEach(([key, value]) => {
+    htmlString += `${key}: ${value}<br>`;
+  });
+  htmlString += "</pre>";
+
+  d3.select("#sample-metadata").html(htmlString);
+
+  // Create a bubble chart
+  var bubbleData = [{
+    x: selectedData.otu_ids,
+    y: selectedData.sample_values,
+    text: selectedData.otu_labels,
+    mode: 'markers',
+    marker: {
+      size: selectedData.sample_values,
+      color: selectedData.otu_ids,
+      colorscale: 'Earth'
+    }
+  }];
+
+  var bubbleLayout = {
+    title: 'Bubble Chart for Each Sample',
+    xaxis: { title: 'OTU IDs', range: [0, Math.max(...selectedData.otu_ids) + 100] },
+    yaxis: { title: 'Sample Values', range: [0, Math.max(...selectedData.sample_values) + 100] }
+  };
+
+  Plotly.newPlot('bubble', bubbleData, bubbleLayout);
+}
+
+  // Use D3 to fetch JSON data from the URL
+  d3.json("https://2u-data-curriculum-team.s3.amazonaws.com/dataviz-classroom/v1.1/14-Interactive-Web-Visualizations/02-Homework/samples.json")
+    .then(function (jsonData) {
+      // Assign the fetched data to the global variable
+      window.data = jsonData;
+
+      // Log the data to the console to verify it's loaded
+      console.log("Fetched Data:", window.data);
+
+      // Populate the dropdown menu with test subject IDs
+      var dropdownMenu = d3.select("#selDataset");
+      window.data.names.forEach(function (name) {
+        dropdownMenu.append("option").text(name).property("value", name);
+      });
+
+      // Initial rendering with the first test subject ID
+      optionChanged(window.data.names[0]);
+    })
+    .catch(function (error) {
+      // Handle any errors that occurred during the fetch
+      console.error("Error fetching data:", error);
+    });
+</script>
+
+</body>
+
+</html>
